@@ -8,7 +8,8 @@ load("encoding/json.star", "json")
 load("schema.star", "schema")
 load("secret.star", "secret")
 
-url = "https://api.rainparrot.com/v1/ios_device"
+FORECAST_URL = "https://api.rainparrot.com/v1/ios_device"
+RADAR_URL = "https://api.rainparrot.com/v1/radar_image"
 
 ENCRYPTED_API_KEY = "AV6+xWcE3l18+UJsEVHYxaLF4QTnQx+zATuU0H0bAKpPhtlTwcrZ2RCsguFb69tHtW6RAB6EAo2+L3LbSQbGtA8bJs2byRFX9n4LNzUr6pJ5YIyJsqqUIFedInwfF5b3uHjRWzQKRkXyGPsSfwg7DuzFMwdT3W5ooLNx9yUtE3h+Z7AO7TFTAE+qr23LbanCT4+8kqI2Rxd2avx/97ifidycJwgCog=="
 DEFAULT_LOCATION = """
@@ -33,6 +34,8 @@ def get_forecast(config):
     deviceId = config.get('device_id')
 
     forecast = cache.get(deviceId)
+    radars = cache.get(deviceId + '_radars')
+
     location = json.decode(config.get("location", DEFAULT_LOCATION));
     accuracy = "###.###"
 
@@ -43,21 +46,76 @@ def get_forecast(config):
             "view_long": humanize.float(accuracy, float(location["lng"])),
         }
 
-        resp = http.get(url, params = params, headers = get_rp_headers(config))
+        resp = http.get(FORECAST_URL, params = params, headers = get_rp_headers(config))
         if resp.status_code != 200:
             print(resp)
             return None
 
         forecast = resp.json()
 
-        print('Loaded forecast')
+        # print('Loaded forecast')
         cache.set(deviceId, json.encode(forecast), ttl_seconds = 60)
         # print(forecast)
-        return forecast
     else:
-        print('Got cached forecast')
+        # print('Got cached forecast')
         forecast = json.decode(forecast)
-        return forecast
+
+    if radars == None:
+        # print('No radar data')
+
+        radar_id = forecast['radar_info']['location']['location_views'][3]['code'];
+        resp = http.get(RADAR_URL, params = {'id': radar_id, 'count': '20'}, headers = {"Host": "api.rainparrot.com"})
+        if resp.status_code != 200:
+            print(resp)
+            return None
+
+        radars = resp.json()
+        cache.set(deviceId + '_radars', json.encode(radars), ttl_seconds = 120)
+
+    else:
+        # print('got cached radars')
+        radars = json.decode(radars)
+
+    forecast['radars'] = radars
+
+    return forecast
+
+def render_frame(image, config):
+    # print('render frame')
+    imgTime = time.parse_time(image['date'])
+    time_str = imgTime.in_location("Australia/Brisbane").format('03:04PM')
+
+    show_time = True if config.get('show_time') == "true" else False
+
+    # print('Show time?')
+    # print(config.get('show_time', False))
+
+    return render.Stack(children = [
+        render.Padding(
+            pad = (0, -16, 0, 0),
+            child = render.Image(
+                src = base64.decode(image['image_data']),
+                width = 64,
+                height = 64
+            ),
+        ),
+        render.Column(
+            expanded=True,
+            main_align="end",
+            children = [ 
+                render.Row(
+                    expanded=True,
+                    main_align="center",
+                    children = [ 
+                        render.Padding(
+                            child=render.Text(time_str, font="CG-pixel-3x5-mono"),
+                            pad=(36,1,1,1)
+                        )
+                    ]
+                )
+            ]
+        ) if show_time else None,
+    ])
 
 def main(config):
 
@@ -73,13 +131,24 @@ def main(config):
     LOCATION_X = (forecast['offset']['x'] / 4) - 16
     LOCATION_Y = (forecast['offset']['y'] / 4) - 16
 
+    FRAME_DELAY = 2
+
+    bg_images = [render_frame(image, config) for image in forecast['radars']['images']]
+    bg_frames = []
+    for i, h in enumerate(bg_images):
+        bg_frames.extend([h] * FRAME_DELAY)
+
+    reversed_frames = bg_frames[::-1]
+
     return render.Root(
+        delay = 100,
         child = render.Stack(
             children=[
-                render.Padding(
-                    render.Image(src=FC_MAP, width=64, height=64),
-                    pad = (0,-16,0,0),
-                ),
+                render.Animation(children = reversed_frames),
+                # render.Padding(
+                #     render.Image(src=FC_MAP, width=64, height=64),
+                #     pad = (0,-16,0,0),
+                # ),
                 render.Padding(
                     render.Circle(
                          color="#651e3e",
@@ -95,7 +164,7 @@ def main(config):
                 render.Padding(
                     pad = (4,14,0,0),
                     child = render.Marquee(
-                     width=54,
+                     width=57,
                      child=render.Text(forecast['minutely_weather']['message'])
                     ),
                 )
@@ -125,5 +194,12 @@ def get_schema():
                 desc = "Location for which to display radar",
                 icon = "place",
             ),
+            schema.Toggle(
+                id = "show_time",
+                name = "Show Time",
+                desc = "Show time of displayed radar",
+                icon = "clock",
+                default = False,
+            )
         ],
     )
