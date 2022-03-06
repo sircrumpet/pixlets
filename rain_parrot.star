@@ -160,17 +160,20 @@ def main(config):
     LOCATION_X = (forecast['offset']['x'] / 4) - 16
     LOCATION_Y = (forecast['offset']['y'] / 4) - 16
 
-    FRAME_DELAY = 4
+    FRAME_DELAY = 18
 
     bg_images = [render_frame(image, config) for image in forecast['radars']['images']]
     bg_frames = []
     for i, h in enumerate(bg_images):
         bg_frames.extend([h] * FRAME_DELAY)
 
+    # print('Loading frames')
+    # print(bg_frames)
+
     reversed_frames = bg_frames[::-1]
 
     return render.Root(
-        delay = 100,
+        # delay = 200,
         child = render.Stack(
             children=[
                 render.Animation(children = reversed_frames),
@@ -193,7 +196,9 @@ def main(config):
                 render.Padding(
                     pad = (4,14,0,0),
                     child = render.Marquee(
+                     scroll_direction='horizontal',
                      width=57,
+                     height=16,
                      child=render.Text(forecast['minutely_weather']['message'])
                     ),
                 )
