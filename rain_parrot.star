@@ -161,7 +161,7 @@ def main(config):
     LOCATION_X = (forecast['offset']['x'] / 4) - 16
     LOCATION_Y = (forecast['offset']['y'] / 4) - 16
 
-    FRAME_DELAY = 2
+    FRAME_DELAY = 4
 
     bg_images = [render_frame(image, config) for image in forecast['radars']['images']]
     bg_frames = []
