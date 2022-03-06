@@ -195,13 +195,21 @@ def main(config):
                 ),
                 render.Padding(
                     pad = (4,14,0,0),
-                    child = render.Marquee(
-                     scroll_direction='horizontal',
+                    child = render.WrappedText(
                      width=57,
                      height=16,
-                     child=render.Text(forecast['minutely_weather']['message'])
+                     content=forecast['minutely_weather']['message']
                     ),
                 )
+                # render.Padding(
+                #     pad = (4,14,0,0),
+                #     child = render.Marquee(
+                #      scroll_direction='horizontal',
+                #      width=57,
+                #      height=16,
+                #      child=render.Text(forecast['minutely_weather']['message'])
+                #     ),
+                # )
             ],
         )
     )
