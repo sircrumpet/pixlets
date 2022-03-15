@@ -160,7 +160,7 @@ def main(config):
     LOCATION_X = (forecast['offset']['x'] / 4) - 16
     LOCATION_Y = (forecast['offset']['y'] / 4) - 16
 
-    FRAME_DELAY = 18
+    FRAME_DELAY = 6
 
     bg_images = [render_frame(image, config) for image in forecast['radars']['images']]
     bg_frames = []
@@ -173,7 +173,7 @@ def main(config):
     reversed_frames = bg_frames[::-1]
 
     return render.Root(
-        # delay = 200,
+        delay = 110,
         child = render.Stack(
             children=[
                 render.Animation(children = reversed_frames),
